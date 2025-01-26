@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stocare Date CSV - Logistic Regression</title>
+  <style>
+    /* Import font from Google Fonts (optional) */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+    /* Reset simplu */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Background degrade pentru body */
+    body {
+      font-family: 'Montserrat', sans-serif;
+      /* Gradient diagonal pastel */
+      background: linear-gradient(135deg, #ffdee9 0%, #b5fffc 100%);
+      min-height: 100vh;
+    }
+
+    /* Container alb cu umbra */
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: flex-start;
+    }
+
+    label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    input[type="file"] {
+      padding: 0.2rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fafafa;
+    }
+
+    button {
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1.2rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    hr {
+      margin: 2rem 0;
+      border: none;
+      border-top: 1px solid #eee;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    #accuracyResult {
+      margin-bottom: 1.5rem;
+      font-weight: bold;
+      color: #444;
+    }
+
+    .section-title {
+      font-size: 1.2rem;
+      margin: 1.5rem 0 0.5rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+    }
+
+    thead {
+      background-color: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Stocare Date CSV - Logistic Regression</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <label for="file">Încărcați fișierul CSV:</label>
+      <input type="file" id="file" name="file" required />
+      <button type="submit">Antrenează Modelul</button>
+    </form>
+
+    <hr />
+
+    <div class="btn-group">
+      <button onclick="getAccuracy()">Afișează Accuracy</button>
+      <button onclick="fetchData()">Date Încărcate Recent</button>
+      <button onclick="fetchStats()">Afișează Statistici</button>
+      <button onclick="fetchDBData()">Date stocate în DB</button>
+    </div>
+
+    <p id="accuracyResult"></p>
+
+    <!-- Afișare date încărcate recent -->
+    <div class="section-title">Date Încărcate Recent</div>
+    <table id="dataTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <!-- Afișare statistici se poate face într-o altă secțiune / tabel, la nevoie -->
+    <div class="section-title">Statistici Descriptive</div>
+    <table id="statsTable">
+      <thead id="statsHead"></thead>
+      <tbody id="statsBody"></tbody>
+    </table>
+
+    <!-- Afișare date din DB, reutilizăm același tabel dataTable sau altul, cum preferi -->
+  </div>
+
+  <script>
+    // Afișăm metrica Accuracy
+    function getAccuracy() {
+      fetch('/results')
+        .then(r => r.json())
+        .then(data => {
+          const accElem = document.getElementById('accuracyResult');
+          if (data.accuracy !== undefined) {
+            accElem.textContent = 'Accuracy: ' + data.accuracy;
+          } else {
+            accElem.textContent = 'Nu există încă date încărcate sau antrenate.';
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Afișăm datele încărcate recent (ultimul fișier)
+    function fetchData() {
+      fetch('/data')
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            alert(data.error);
+          } else {
+            createTable(data, 'tableHead', 'tableBody');
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Afișăm statistici descriptive
+    function fetchStats() {
+      fetch('/stats')
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            alert(data.error);
+          } else {
+            createStatsTable(data, 'statsHead', 'statsBody');
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Afișăm date stocate în DB (toate fișierele încărcate)
+    function fetchDBData() {
+      fetch('/db_data')
+        .then(r => r.json())
+        .then(data => {
+          if (data.length === 0) {
+            alert('Nu există date în DB încă.');
+          } else {
+            // Le afișăm în același tabel principal
+            createTable(data, 'tableHead', 'tableBody');
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Creează/înlocuiește un tabel HTML cu date (pentru datele tip array de obiecte)
+    function createTable(jsonData, theadId, tbodyId) {
+      const tableHead = document.getElementById(theadId);
+      const tableBody = document.getElementById(tbodyId);
+
+      tableHead.innerHTML = '';
+      tableBody.innerHTML = '';
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        return;
+      }
+
+      // Preluăm toate cheile posibile din primul obiect
+      const headers = Object.keys(jsonData[0]);
+
+      // Construim header
+      const headerRow = document.createElement('tr');
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+      });
+      tableHead.appendChild(headerRow);
+
+      // Construim fiecare rând
+      jsonData.forEach(rowObj => {
+        const row = document.createElement('tr');
+        headers.forEach(header => {
+          const cell = document.createElement('td');
+          cell.textContent = rowObj[header];
+          row.appendChild(cell);
+        });
+        tableBody.appendChild(row);
+      });
+    }
+
+    // Creează/înlocuiește un tabel pentru statistici descriptive (pentru datele returnate de .describe())
+    function createStatsTable(statsData, theadId, tbodyId) {
+      const statsHead = document.getElementById(theadId);
+      const statsBody = document.getElementById(tbodyId);
+
+      statsHead.innerHTML = '';
+      statsBody.innerHTML = '';
+
+      const columns = Object.keys(statsData); // Numele coloanelor
+      if (columns.length === 0) return;
+
+      const rowLabels = Object.keys(statsData[columns[0]]); // 'count', 'mean', 'std', 'min', ...
+
+      // Creăm header row: prima coloană = '', apoi numele coloanelor
+      const headerRow = document.createElement('tr');
+      const emptyHeader = document.createElement('th');
+      emptyHeader.textContent = '';
+      headerRow.appendChild(emptyHeader);
+
+      columns.forEach(colName => {
+        const th = document.createElement('th');
+        th.textContent = colName;
+        headerRow.appendChild(th);
+      });
+      statsHead.appendChild(headerRow);
+
+      // Creăm rândurile
+      rowLabels.forEach(label => {
+        const row = document.createElement('tr');
+
+        // Prima celulă = eticheta (ex: 'count', 'mean', etc.)
+        const labelCell = document.createElement('td');
+        labelCell.textContent = label;
+        row.appendChild(labelCell);
+
+        // Pentru fiecare coloană
+        columns.forEach(colName => {
+          const cell = document.createElement('td');
+          const value = statsData[colName][label];
+          cell.textContent = value !== null && value !== undefined ? value : '';
+          row.appendChild(cell);
+        });
+
+        statsBody.appendChild(row);
+      });
+    }
+  </script>
+</body>
+</html>
